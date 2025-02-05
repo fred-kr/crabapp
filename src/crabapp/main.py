@@ -1,11 +1,11 @@
 import os
 import time
-from multiprocessing import Process, Condition
+from multiprocessing import Condition, Process
 
 import setproctitle
 import webview
-from crabapp.domino import terminate_when_process_dies
 
+from crabapp.domino import terminate_when_process_dies
 from crabapp.server import start_dash
 
 
@@ -16,7 +16,7 @@ def start() -> None:
     server_is_started = Condition()
 
     # Set the process title.
-    setproctitle.setproctitle('crabapp-webview')
+    setproctitle.setproctitle("crabapp-webview")
 
     # Spawn the dash process.
     p = Process(target=start_dash, args=(host, port, server_is_started))
@@ -31,8 +31,9 @@ def start() -> None:
     #  idk if that is possible.
     time.sleep(0.2)
 
+    webview.settings["ALLOW_DOWNLOADS"] = True
     # Create the webview.
-    webview.create_window('Dash', f'http://{host}:{port}', maximized=True)
+    webview.create_window("Dash", f"http://{host}:{port}", maximized=True)
     webview.start()
 
     # Reached when window is closed.
@@ -40,5 +41,5 @@ def start() -> None:
     exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     start()
