@@ -34,7 +34,7 @@ def start() -> None:
     # Allow downloading results as csv file
     webview.settings["ALLOW_DOWNLOADS"] = True
     # Create the webview.
-    webview.create_window("Dash", f"http://{host}:{port}", maximized=True)
+    webview.create_window("CrabApp", f"http://{host}:{port}", width=1920, height=1080)
     webview.start()
 
     # Reached when window is closed.

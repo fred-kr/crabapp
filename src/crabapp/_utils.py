@@ -5,7 +5,6 @@ import multiprocessing.process
 import os
 import signal
 import threading
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal, NamedTuple, TypedDict
 
@@ -29,6 +28,7 @@ type T_PlotlyTemplate = Literal[
     "none",
 ]
 
+
 PlotlyTemplates = (
     "ggplot2",
     "seaborn",
@@ -42,106 +42,6 @@ PlotlyTemplates = (
     "gridon",
     "none",
 )
-
-
-class QualitativeColors(NamedTuple):
-    """NamedTuple holding the available qualitative color palettes."""
-
-    Plotly = (
-        "#636EFA",
-        "#EF553B",
-        "#00CC96",
-        "#AB63FA",
-        "#FFA15A",
-        "#19D3F3",
-        "#FF6692",
-        "#B6E880",
-        "#FF97FF",
-        "#FECB52",
-    )
-    D3 = "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF"
-    G10 = "#3366CC", "#DC3912", "#FF9900", "#109618", "#990099", "#0099C6", "#DD4477", "#66AA00", "#B82E2E", "#316395"
-    T10 = "#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B", "#EECA3B", "#B279A2", "#FF9DA6", "#9D755D", "#BAB0AC"
-    Alphabet = (
-        "#AA0DFE",
-        "#3283FE",
-        "#85660D",
-        "#782AB6",
-        "#565656",
-        "#1C8356",
-        "#16FF32",
-        "#F7E1A0",
-        "#E2E2E2",
-        "#1CBE4F",
-        "#C4451C",
-        "#DEA0FD",
-        "#FE00FA",
-        "#325A9B",
-        "#FEAF16",
-        "#F8A19F",
-        "#90AD1C",
-        "#F6222E",
-        "#1CFFCE",
-        "#2ED9FF",
-        "#B10DA1",
-        "#C075A6",
-        "#FC1CBF",
-        "#B00068",
-        "#FBE426",
-        "#FA0087",
-    )
-    Dark24 = (
-        "#2E91E5",
-        "#E15F99",
-        "#1CA71C",
-        "#FB0D0D",
-        "#DA16FF",
-        "#222A2A",
-        "#B68100",
-        "#750D86",
-        "#EB663B",
-        "#511CFB",
-        "#00A08B",
-        "#FB00D1",
-        "#FC0080",
-        "#B2828D",
-        "#6C7C32",
-        "#778AAE",
-        "#862A16",
-        "#A777F1",
-        "#620042",
-        "#1616A7",
-        "#DA60CA",
-        "#6C4516",
-        "#0D2A63",
-        "#AF0038",
-    )
-    Light24 = (
-        "#FD3216",
-        "#00FE35",
-        "#6A76FC",
-        "#FED4C4",
-        "#FE00CE",
-        "#0DF9FF",
-        "#F6F926",
-        "#FF9616",
-        "#479B55",
-        "#EEA6FB",
-        "#DC587D",
-        "#D626FF",
-        "#6E899C",
-        "#00B5F7",
-        "#B68E00",
-        "#C9FBE5",
-        "#FF0092",
-        "#22FFA7",
-        "#E3EE9E",
-        "#86CE00",
-        "#BC7196",
-        "#7E7DCD",
-        "#FC6955",
-        "#E48F72",
-    )
 
 
 class LinregressResultDict(TypedDict):
@@ -176,6 +76,9 @@ class LinregressResult(NamedTuple):
     def to_df(self) -> pl.DataFrame:
         return pl.DataFrame([self.to_dict()])
 
+    def to_json(self) -> str:
+        return self.to_df().write_json()
+
 
 class SelectedPoint(TypedDict):
     curveNumber: int
@@ -203,83 +106,15 @@ class UploadedData(TypedDict):
 
 class ResultRow(TypedDict):
     source_file: str
+    fit_id: int
     start_index: int
     end_index: int
     slope: float
     rsquared: float
 
 
-@dataclass(slots=True)
-class LayoutOpts:
-    """
-    Dataclass to hold layout options for the Plotly plot.
-
-    Parameters
-    ----------
-    title : str
-        The title of the plot.
-    x_label : str
-        The label for the x-axis.
-    y0_label : str
-        The label for the y-axis.
-    y1_label : str
-        The label for the secondary y-axis (if one exists).
-    theme : PlotlyTemplate, optional
-        The theme to use for the plot. Defaults to "simple_white".
-    colors : Sequence[str], optional
-        The colors to use for the fits. Defaults to QualitativeColors.Plotly.
-    width : int, optional
-        The width of the plot. Defaults to 2100.
-    height : int, optional
-        The height of the plot. Defaults to 1000.
-    font_size : int, optional
-        The font size of the annotations in pixels. Defaults to 12.
-    secondary_y_type : Literal["color", "scatter", "line"], optional
-        The type of the secondary y-axis. Defaults to "line".
-    """
-
-    title: str = ""
-    x_label: str = "x"
-    y0_label: str = "y0"
-    y1_label: str | None = "y1"
-    theme: T_PlotlyTemplate = "simple_white"
-    # colors: Sequence[str] = QualitativeColors.Plotly
-    width: int = 2100
-    height: int = 1000
-    font_size: int = 12
-    secondary_y_type: Literal["color", "scatter", "line"] = "line"
-
-    # def set_colors(self, name: Literal["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Light24"]) -> None:
-    # self.colors = getattr(QualitativeColors, name)
-
-    def apply_to_fig(self, fig: go.Figure) -> go.Figure:
-        return fig.update_layout(
-            title=self.title,
-            xaxis_title=self.x_label,
-            yaxis_title=self.y0_label,
-            yaxis2_title=self.y1_label,
-            width=self.width,
-            height=self.height,
-            font_size=self.font_size,
-        )
-
-
-class DataSegmentDict(TypedDict):
-    segment_id: str
-    start_index: int
-    end_index: int
-    data: str  # JSON string of df, read with pl.read_json(io.StringIO(data))
-    fit_result: LinregressResultDict
-    fig: go.Figure
-    x_col: str
-    y0_col: str
-    y1_col: str | None
-    name: str
-    formatted_results: str
-
-
 class DataSegment:
-    all_segments: ClassVar[list[DataSegmentDict]] = []
+    all_segments: ClassVar[list["DataSegment"]] = []
     source_name: ClassVar[str] = ""
     source_data: ClassVar[pl.DataFrame] = pl.DataFrame()
     source_fig: ClassVar[go.Figure] = go.Figure()
@@ -287,7 +122,6 @@ class DataSegment:
     y0_col: ClassVar[str] = ""
     y1_col: ClassVar[str | None] = None
     _source_set: ClassVar[bool] = False
-    _layout_opts: ClassVar[LayoutOpts] = LayoutOpts()
 
     @classmethod
     def set_source(
@@ -297,19 +131,18 @@ class DataSegment:
         x_col: str,
         y0_col: str,
         y1_col: str | None = None,
-        layout_opts: LayoutOpts | None = None,
+        theme: T_PlotlyTemplate = "simple_white",
     ) -> None:
-        cls._layout_opts = layout_opts or cls._layout_opts
         cls.source_name = Path(source_name).stem
         cls.source_data = source_data
         cls.x_col = x_col
         cls.y0_col = y0_col
         cls.y1_col = y1_col
-        cls.make_base_fig()
+        cls.make_base_fig(theme)
         cls._source_set = True
 
     @classmethod
-    def make_base_fig(cls, theme: T_PlotlyTemplate | None = None) -> None:
+    def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white") -> None:
         cls.all_segments = []
         point_color = "lightgray" if cls.y1_col is None else cls.source_data.get_column(cls.y1_col)
         fig = go.Figure()
@@ -321,8 +154,7 @@ class DataSegment:
         )
         cls.source_fig = fig.update_layout(
             clickmode="event+select",
-            template=theme or cls._layout_opts.theme,
-            height=cls._layout_opts.height,
+            template=theme,
             dragmode="select",
             showlegend=False,
         )
@@ -342,20 +174,16 @@ class DataSegment:
             stderr=res.stderr,
             intercept_stderr=res.intercept_stderr,
         )
+        DataSegment.all_segments.append(self)
         self.data = self.data.with_columns(
             pl.lit(self.segment_id).alias("segment_id"),
             (self.fit_result.slope * pl.col(self.x_col) + self.fit_result.intercept).alias("fitted"),
         )
-        DataSegment.all_segments.append(self.serialize())
-        DataSegment.all_segments.sort(key=lambda s: s["start_index"])
+        DataSegment.all_segments.sort(key=lambda s: s.start_index)
 
     @property
-    def segment_id(self) -> str:
-        return f"{self.start_index}-{self.end_index}"
-
-    @property
-    def name(self) -> str:
-        return f"{self.source_name}_{self.segment_id}"
+    def segment_id(self) -> int:
+        return DataSegment.all_segments.index(self) + 1
 
     @property
     def x_data(self) -> pl.Series:
@@ -373,90 +201,54 @@ class DataSegment:
     def y0_fitted(self) -> pl.Series:
         return self.data.get_column("fitted")
 
-    @property
-    def slope(self) -> float:
-        return self.fit_result.slope
-
-    @property
-    def intercept(self) -> float:
-        return self.fit_result.intercept
-
-    @property
-    def r_value(self) -> float:
-        return self.fit_result.rvalue
-
-    @property
-    def p_value(self) -> float:
-        return self.fit_result.pvalue
-
-    @property
-    def stderr(self) -> float:
-        return self.fit_result.stderr
-
-    @property
-    def intercept_stderr(self) -> float:
-        return self.fit_result.intercept_stderr
-
-    @property
-    def r_squared(self) -> float:
-        return self.r_value**2
-
     def plot(self, add: bool = True) -> go.Figure:
         if add:
-            self.source_fig.add_scattergl(
+            return self.source_fig.add_scattergl(
                 x=self.x_data,
                 y=self.y0_fitted,
                 mode="lines",
                 line=dict(color="red", width=3),
-                name=f"Segment {self.segment_id}",
+                name=f"Fit {self.segment_id}<br>slope={self.fit_result.slope:.2f}<br>r2={self.fit_result.rvalue**2:.2f}",
                 hoverinfo="name",
             )
-            return self.source_fig
-        else:
-            fig = go.Figure()
-            point_color = self.y1_data or "lightgray"
-            fig.add_scattergl(
-                x=self.x_data,
-                y=self.y0_data,
-                mode="markers",
-                marker=dict(color=point_color),
-                name=f"Segment {self.segment_id}, raw values",
-                hoverinfo="name",
-            )
-            fig.add_scattergl(
-                x=self.x_data,
-                y=self.y0_fitted,
-                mode="lines",
-                line=dict(color="red", width=3),
-                name=f"Segment {self.segment_id}, fitted '{self.y0_col}' values",
-                hoverinfo="name",
-            )
-            return fig
+        fig = go.Figure()
+        point_color = self.y1_data or "lightgray"
+        fig.add_scattergl(
+            x=self.x_data,
+            y=self.y0_data,
+            mode="markers",
+            marker=dict(color=point_color),
+            # name=f"Fit {self.segment_id}",
+            # hoverinfo="name",
+        )
+        return fig.add_scattergl(
+            x=self.x_data,
+            y=self.y0_fitted,
+            mode="lines",
+            line=dict(color="red", width=3),
+            name=f"Fit {self.segment_id}<br>slope={self.fit_result.slope:.2f}<br>r2={self.fit_result.rvalue**2:.2f}",
+            hoverinfo="name",
+        )
 
-    def serialize(self) -> DataSegmentDict:
+    def result_row(self) -> ResultRow:
         return {
-            "segment_id": self.segment_id,
+            "source_file": self.source_name,
+            "fit_id": self.segment_id,
             "start_index": self.start_index,
             "end_index": self.end_index,
-            "data": self.data.write_json(),
-            "fit_result": self.fit_result.to_dict(),
-            "fig": self.plot(),
-            "x_col": self.x_col,
-            "y0_col": self.y0_col,
-            "y1_col": self.y1_col,
-            "name": self.name,
-            "formatted_results": self.fit_result.to_df().write_json(),
+            "slope": self.fit_result.slope,
+            "rsquared": self.fit_result.rvalue**2,
         }
 
 
-def detect_delimiter(decoded_string: str, skip_rows: int = 0, sample_size: int = 3) -> str:
+def detect_delimiter(decoded_string: str, skip_rows: int = 0, sample_rows: int = 3) -> str:
     """
     Automatically detects the delimiter used in a text file containing tabular data.
 
     Args:
         decoded_string (str): The content of the file as a decoded string.
         skip_rows (int): The number of rows to skip before attempting to detect the delimiter.
-        sample_size (int): The number of rows to sample from the file (starting from the `skip_rows` row).
+        sample_rows (int): The number of rows to sample from the file (starting from the `skip_rows` row).
 
     Returns:
         str: The detected delimiter character.
@@ -465,7 +257,7 @@ def detect_delimiter(decoded_string: str, skip_rows: int = 0, sample_size: int =
         ValueError: If the delimiter cannot be detected.
         FileNotFoundError: If the file does not exist.
     """
-    sample_size = max(1, sample_size)
+    sample_rows = max(1, sample_rows)
 
     try:
         with io.StringIO(decoded_string) as file:
@@ -475,7 +267,7 @@ def detect_delimiter(decoded_string: str, skip_rows: int = 0, sample_size: int =
             for _ in range(skip_rows):
                 file.readline()
 
-            sample = "\n".join(file.readline() for _ in range(sample_size - 1))
+            sample = "\n".join(file.readline() for _ in range(sample_rows - 1))
     except Exception as e:
         raise ValueError(f"Error reading file: {str(e)}") from e
 
@@ -491,11 +283,28 @@ def detect_delimiter(decoded_string: str, skip_rows: int = 0, sample_size: int =
 def parse_contents(
     contents: str, filename: str, skip_rows: int = 0, separator: str = "auto"
 ) -> tuple[html.Div, pl.DataFrame]:
+    """
+    Parse the contents of an uploaded file and return a DataFrame.
+
+    This function decodes the base64 encoded string, detects the file type, parses the contents accordingly, and returns
+    a DataFrame along with a Dash HTML component for displaying the data.
+
+    Args:
+        contents (str): The base64 encoded file contents.
+        filename (str): The name of the uploaded file.
+        skip_rows (int, optional): Number of rows to skip. Defaults to 0.
+        separator (str, optional): Delimiter to use. If "auto", an attempt is made to detect the separator character by
+        reading the first few rows of the file. Defaults to "auto".
+
+    Returns:
+        tuple[html.Div, pl.DataFrame]: A tuple containing a Dash HTML Div for displaying the data and the parsed
+        DataFrame.
+    """
     _, content_string = contents.split(",")
     decoded = base64.b64decode(content_string)
     suffix = Path(filename).suffix
     try:
-        if any(ext in suffix for ext in {"csv", "txt", "tsv"}):
+        if suffix in {".csv", ".txt", ".tsv"}:
             content = decoded.decode("utf-8", errors="replace")
             if separator == "auto":
                 separator = detect_delimiter(content, skip_rows=skip_rows)
@@ -503,14 +312,15 @@ def parse_contents(
                 separator.join(field.strip() for field in line.split(separator)) for line in content.splitlines()
             )
             df = pl.read_csv(io.StringIO(cleaned_content), skip_rows=skip_rows, separator=separator)
-        elif "xls" in suffix:
+        elif suffix in {".xlsx", ".xls"}:
             df = pl.read_excel(io.BytesIO(decoded), read_options={"skip_rows": skip_rows})
         else:
-            return html.Div(["There was an error processing this file."]), pl.DataFrame()
+            return html.Div(["Unknown file type."]), pl.DataFrame()
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."]), pl.DataFrame()
 
+    df = df.with_row_index()
     return html.Div(
         [
             html.H5(filename),
@@ -521,7 +331,7 @@ def parse_contents(
                 dashGridOptions={"suppressFieldDotNotation": True},
             ),
         ]
-    ), df.with_row_index()
+    ), df
 
 
 def join_process_and_terminate(process: multiprocessing.process.BaseProcess) -> None:
