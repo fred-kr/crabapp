@@ -19,11 +19,10 @@ from crabapp._utils import (
     T_PlotlyTemplate,
     UploadedData,
     parse_contents,
+    terminate_when_parent_process_dies,
 )
-from crabapp.domino import terminate_when_parent_process_dies
 
 upload_style = {
-    # "width": "100%",
     "height": "60px",
     "lineHeight": "60px",
     "borderWidth": "1px",
@@ -37,13 +36,6 @@ upload_link_style = {
     "color": "blue",
     "textDecoration": "underline",
     "cursor": "pointer",
-}
-
-flex_container_style = {
-    "display": "flex",
-    "gap": "10px",
-    "align-items": "center",
-    "margin-top": "10px",
 }
 
 container_style = {"padding": "10px"}
@@ -66,7 +58,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
     # When the parent dies, follow along.
     terminate_when_parent_process_dies()
 
-    app = Dash("crabapp", external_stylesheets=[dbc.themes.JOURNAL])
+    app = Dash("crabapp", external_stylesheets=[dbc.themes.UNITED])
 
     app.layout = dbc.Container(
         [
@@ -125,62 +117,93 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                     ]
                                 ),
                                 # Dropdowns for selecting x and y columns
-                                html.Div(
+                                dbc.Row(
                                     [
-                                        dcc.Dropdown(
-                                            id="x-data",
-                                            placeholder="Select column for x-axis",
-                                            style={"flex": "1"},
+                                        dbc.Col(
+                                            [
+                                                dbc.Label("X Axis"),
+                                                dcc.Dropdown(
+                                                    id="x-data",
+                                                    placeholder="Select column for x-axis",
+                                                ),
+                                            ]
                                         ),
-                                        dcc.Dropdown(
-                                            id="y-data",
-                                            multi=True,
-                                            placeholder="Select column(s) for y-axis",
-                                            style={"flex": "1"},
+                                        dbc.Col(
+                                            [
+                                                dbc.Label("Y Axis"),
+                                                dcc.Dropdown(
+                                                    id="y-data",
+                                                    multi=True,
+                                                    placeholder="Select column(s) for y-axis",
+                                                ),
+                                            ]
                                         ),
-                                    ],
-                                    style=flex_container_style,
+                                    ]
                                 ),
                                 # Dropdown for plot template and control buttons
-                                html.Div(
+                                dbc.Row(
                                     [
-                                        dcc.Dropdown(
-                                            id="plot-template",
-                                            options=list(PlotlyTemplates),
-                                            value="simple_white",
-                                            style={"flex": "1"},
+                                        dbc.Col(
+                                            [
+                                                dbc.Label("Plot Theme"),
+                                                dcc.Dropdown(
+                                                    id="plot-template",
+                                                    options=list(PlotlyTemplates),
+                                                    value="simple_white",
+                                                ),
+                                            ],
                                         ),
-                                        dbc.Button("Plot", id="plot-button", n_clicks=0),
-                                        dbc.Button("Add Segment", id="add-segment-button", n_clicks=0),
-                                        dbc.Button("Clear Segments", id="clear-segments-button", n_clicks=0),
-                                        dbc.Button("Save Segments", id="save-segments-button", n_clicks=0),
+                                        dbc.Col(
+                                            dbc.Button("Plot", id="plot-button", n_clicks=0),
+                                        ),
                                     ],
-                                    style=flex_container_style,
+                                    style={"margin-top": "10px"},
                                 ),
                             ],
                             body=True,
-                        ),
-                        width=4,
+                        )
                     ),
                     # Right column: Data grid for segment results
                     dbc.Col(
-                        html.Div(
-                            dag.AgGrid(
-                                id="segment-result-grid",
-                                columnSize="responsiveSizeToFit",
-                                columnDefs=segment_grid_columns,
-                                rowData=[],
-                                csvExportParams={"fileName": "results.csv"},
-                                dashGridOptions={
-                                    "rowSelection": "multiple",
-                                    "suppressRowClickSelection": True,
-                                    "animateRows": False,
-                                },
+                        [
+                            dbc.ButtonGroup(
+                                [
+                                    dbc.Button(
+                                        "Remove selected result(s)",
+                                        id="clear-segments-button",
+                                        n_clicks=0,
+                                    ),
+                                    dbc.Button(
+                                        "Export results",
+                                        id="save-segments-button",
+                                        n_clicks=0,
+                                    ),
+                                ],
                             ),
-                        ),
-                        width=8,
+                            html.Div(
+                                dag.AgGrid(
+                                    id="segment-result-grid",
+                                    columnSize="responsiveSizeToFit",
+                                    columnDefs=segment_grid_columns,
+                                    rowData=[],
+                                    csvExportParams={"fileName": "results.csv"},
+                                    dashGridOptions={
+                                        "rowSelection": "multiple",
+                                        "suppressRowClickSelection": True,
+                                        "animateRows": False,
+                                    },
+                                ),
+                            ),
+                        ],
                     ),
                 ]
+            ),
+            dbc.Row(
+                dbc.Button(
+                    "Add linear fit",
+                    id="add-segment-button",
+                    n_clicks=0,
+                ),
             ),
             # Row for the graph output
             dbc.Row(

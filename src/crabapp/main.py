@@ -5,7 +5,7 @@ from multiprocessing import Condition, Process
 import setproctitle
 import webview
 
-from crabapp.domino import terminate_when_process_dies
+from crabapp._utils import terminate_when_process_dies
 from crabapp.server import start_dash
 
 
@@ -31,6 +31,7 @@ def start() -> None:
     #  idk if that is possible.
     time.sleep(0.2)
 
+    # Allow downloading results as csv file
     webview.settings["ALLOW_DOWNLOADS"] = True
     # Create the webview.
     webview.create_window("Dash", f"http://{host}:{port}", maximized=True)

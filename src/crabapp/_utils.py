@@ -1,7 +1,10 @@
 import base64
 import csv
 import io
-from collections.abc import Sequence
+import multiprocessing.process
+import os
+import signal
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal, NamedTuple, TypedDict
@@ -141,22 +144,6 @@ class QualitativeColors(NamedTuple):
     )
 
 
-class LinearFitInfoDict(TypedDict):
-    name: str
-    respiration_period: int
-    fit_id: int
-    temperature_mean: float
-    temperature_std_dev: float
-    change_per_minute: float
-    slope: float
-    slope_std_err: float
-    r_squared: float
-    r_value: float
-    p_value: float
-    intercept: float
-    intercept_std_err: float
-
-
 class LinregressResultDict(TypedDict):
     slope: float
     intercept: float
@@ -231,10 +218,12 @@ class LayoutOpts:
     ----------
     title : str
         The title of the plot.
-    xaxis_title : str
-        The title of the x-axis.
-    yaxis_title : str
-        The title of the y-axis.
+    x_label : str
+        The label for the x-axis.
+    y0_label : str
+        The label for the y-axis.
+    y1_label : str
+        The label for the secondary y-axis (if one exists).
     theme : PlotlyTemplate, optional
         The theme to use for the plot. Defaults to "simple_white".
     colors : Sequence[str], optional
@@ -245,19 +234,34 @@ class LayoutOpts:
         The height of the plot. Defaults to 1000.
     font_size : int, optional
         The font size of the annotations in pixels. Defaults to 12.
+    secondary_y_type : Literal["color", "scatter", "line"], optional
+        The type of the secondary y-axis. Defaults to "line".
     """
 
-    title: str = "Oxygen Saturation vs Time"
-    xaxis_title: str = "Time (s)"
-    yaxis_title: str = "O2 Saturation (%)"
+    title: str = ""
+    x_label: str = "x"
+    y0_label: str = "y0"
+    y1_label: str | None = "y1"
     theme: T_PlotlyTemplate = "simple_white"
-    colors: Sequence[str] = QualitativeColors.Plotly
+    # colors: Sequence[str] = QualitativeColors.Plotly
     width: int = 2100
     height: int = 1000
     font_size: int = 12
+    secondary_y_type: Literal["color", "scatter", "line"] = "line"
 
-    def set_colors(self, name: Literal["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Light24"]) -> None:
-        self.colors = getattr(QualitativeColors, name)
+    # def set_colors(self, name: Literal["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Light24"]) -> None:
+    # self.colors = getattr(QualitativeColors, name)
+
+    def apply_to_fig(self, fig: go.Figure) -> go.Figure:
+        return fig.update_layout(
+            title=self.title,
+            xaxis_title=self.x_label,
+            yaxis_title=self.y0_label,
+            yaxis2_title=self.y1_label,
+            width=self.width,
+            height=self.height,
+            font_size=self.font_size,
+        )
 
 
 class DataSegmentDict(TypedDict):
@@ -295,8 +299,7 @@ class DataSegment:
         y1_col: str | None = None,
         layout_opts: LayoutOpts | None = None,
     ) -> None:
-        layout_opts = layout_opts or LayoutOpts()
-        cls._layout_opts = layout_opts
+        cls._layout_opts = layout_opts or cls._layout_opts
         cls.source_name = Path(source_name).stem
         cls.source_data = source_data
         cls.x_col = x_col
@@ -306,9 +309,7 @@ class DataSegment:
         cls._source_set = True
 
     @classmethod
-    def make_base_fig(
-        cls,
-    ) -> None:
+    def make_base_fig(cls, theme: T_PlotlyTemplate | None = None) -> None:
         cls.all_segments = []
         point_color = "lightgray" if cls.y1_col is None else cls.source_data.get_column(cls.y1_col)
         fig = go.Figure()
@@ -318,14 +319,13 @@ class DataSegment:
             mode="markers",
             marker=dict(color=point_color, symbol="circle-open-dot", colorscale="Plasma", opacity=0.2, size=3),
         )
-        fig.update_layout(
+        cls.source_fig = fig.update_layout(
             clickmode="event+select",
-            template=cls._layout_opts.theme,
+            template=theme or cls._layout_opts.theme,
             height=cls._layout_opts.height,
             dragmode="select",
             showlegend=False,
         )
-        cls.source_fig = fig
 
     def __init__(self, start_index: int, end_index: int) -> None:
         if not self._source_set:
@@ -522,3 +522,32 @@ def parse_contents(
             ),
         ]
     ), df.with_row_index()
+
+
+def join_process_and_terminate(process: multiprocessing.process.BaseProcess) -> None:
+    """
+    Whenever the given process exits, send SIGTERM to self.
+    This function is synchronous; for async usage see the other two.
+    """
+    process.join()
+    # sys.exit() raises, killing only the current thread
+    # os._exit() is private, and also doesn't allow the thread to gracefully exit
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def terminate_when_process_dies(process: multiprocessing.process.BaseProcess) -> None:
+    """
+    Whenever the given process exits, send SIGTERM to self.
+    This function is asynchronous.
+    """
+    threading.Thread(target=join_process_and_terminate, args=(process,)).start()
+
+
+def terminate_when_parent_process_dies() -> None:
+    """
+    Whenever the parent process exits, send SIGTERM to self.
+    This function is asynchronous.
+    """
+    parent_process = multiprocessing.parent_process()
+    if parent_process is not None:
+        terminate_when_process_dies(parent_process)
