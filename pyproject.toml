@@ -27,5 +27,6 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "nuitka>=2.6.4",
+    "pyinstaller>=6.11.1",
+    "pyinstaller-hooks-contrib>=2025.1",
 ]
