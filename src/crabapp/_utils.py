@@ -132,25 +132,29 @@ class DataSegment:
         y0_col: str,
         y1_col: str | None = None,
         theme: T_PlotlyTemplate = "simple_white",
+        y1_style: Literal["color", "scatter", "line"] | None = None,
     ) -> None:
         cls.source_name = Path(source_name).stem
         cls.source_data = source_data
         cls.x_col = x_col
         cls.y0_col = y0_col
         cls.y1_col = y1_col
-        cls.make_base_fig(theme)
+        cls.make_base_fig(theme, y1_style)
         cls._source_set = True
 
     @classmethod
-    def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white") -> None:
+    def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white", y1_style: Literal["color", "scatter", "line"] | None = None) -> None:
         cls.all_segments = []
-        point_color = "lightgray" if cls.y1_col is None else cls.source_data.get_column(cls.y1_col)
+        # point_color = "lightgray" if cls.y1_col is None else cls.source_data.get_column(cls.y1_col)
+        x = cls.source_data.get_column(cls.x_col)
+        y0 = cls.source_data.get_column(cls.y0_col)
+        y1 = cls.source_data.get_column(cls.y1_col) if cls.y1_col is not None else None
         fig = go.Figure()
         fig.add_scattergl(
-            x=cls.source_data.get_column(cls.x_col),
-            y=cls.source_data.get_column(cls.y0_col),
+            x=x,
+            y=y0,
             mode="markers",
-            marker=dict(color=point_color, symbol="circle-open-dot", colorscale="Plasma", opacity=0.2, size=3),
+            # marker=dict(color=point_color, symbol="circle-open-dot", colorscale="Plasma", opacity=0.2, size=3),
         )
         cls.source_fig = fig.update_layout(
             clickmode="event+select",

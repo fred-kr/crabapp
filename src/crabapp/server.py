@@ -1,6 +1,6 @@
 import io
 from multiprocessing.synchronize import Condition
-from typing import Any
+from typing import Any, Literal
 
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
@@ -258,10 +258,11 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         State("store-data-upload", "data"),
         State("dropdown-x-data", "value"),
         State("dropdown-y-data", "value"),
+        State("dropdown-secondary-y-style", "value"),
         prevent_initial_call=True,
     )
     def update_graph(
-        n_clicks: int, theme: T_PlotlyTemplate, data: UploadedData, x_col: str, y_cols: list[str]
+        n_clicks: int, theme: T_PlotlyTemplate, data: UploadedData, x_col: str, y_cols: list[str], secondary_y_style: Literal["color", "scatter", "line"]
     ) -> go.Figure:
         if not n_clicks or not data:
             return go.Figure()
@@ -292,9 +293,12 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         Output("table-segment-results", "deleteSelectedRows"),
         Input("button-clear-segments", "n_clicks"),
         State("table-segment-results", "selectedRows"),
+        State("dropdown-plot-template", "value"),
         prevent_initial_call=True,
     )
-    def clear_segments(n_clicks: int, selected_rows: list[ResultRow]) -> tuple[go.Figure, bool]:
+    def clear_segments(
+        n_clicks: int, selected_rows: list[ResultRow], theme: T_PlotlyTemplate
+    ) -> tuple[go.Figure, bool]:
         current_fits = DataSegment.all_segments.copy()
         # get the start indices from the selected rows and use them to remove the corresponding segments
         for row in selected_rows:
@@ -304,7 +308,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                     current_fits.pop(i)
                     break
 
-        DataSegment.make_base_fig()
+        DataSegment.make_base_fig(theme=theme)
         for cfit in current_fits:
             ds = DataSegment(cfit.start_index, cfit.end_index)
             ds.plot()

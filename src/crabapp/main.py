@@ -1,15 +1,21 @@
-import os
-import time
-from multiprocessing import Condition, Process
-
-import setproctitle
-import webview
-
-from crabapp._utils import terminate_when_process_dies
-from crabapp.server import start_dash
+import sys
 
 
 def start() -> None:
+    import multiprocessing
+    import os
+    import time
+
+    multiprocessing.freeze_support()
+
+    from multiprocessing import Condition, Process
+
+    import setproctitle
+    import webview
+
+    from crabapp._utils import terminate_when_process_dies
+    from crabapp.server import start_dash
+
     port = os.getenv("PORT", "8050")
     host = os.getenv("HOST", "127.0.0.1")
 
@@ -39,7 +45,7 @@ def start() -> None:
 
     # Reached when window is closed.
     p.terminate()
-    exit(0)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
