@@ -1,6 +1,6 @@
 import io
 from multiprocessing.synchronize import Condition
-from typing import Any, Literal
+from typing import Any
 
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
@@ -112,10 +112,15 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                 ]
                                             ),
                                             dbc.Col(
-                                                [
-                                                    dbc.Button("Clear Data", id="button-clear-data", n_clicks=0),
-                                                ],
+                                                dbc.Button(
+                                                    "Clear Data",
+                                                    id="button-clear-data",
+                                                    n_clicks=0,
+                                                    size="lg",
+                                                    style={"margin-top": "10px"},
+                                                ),
                                                 width=2,
+                                                align="stretch",
                                             ),
                                         ],
                                         style={"margin-top": "10px"},
@@ -154,25 +159,12 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                         value="simple_white",
                                                     ),
                                                 ],
-                                            ),
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Secondary Y Style"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-secondary-y-style",
-                                                        options=[
-                                                            {"label": "Color", "value": "color"},
-                                                            {"label": "Scatter", "value": "scatter"},
-                                                            {"label": "Line", "value": "line"},
-                                                        ],
-                                                        value="color",
-                                                        clearable=False,
-                                                    ),
-                                                ],
+                                                width=4,
                                             ),
                                             dbc.Col(
                                                 dbc.Button("Plot", id="button-make-plot", n_clicks=0),
                                                 align="end",
+                                                width=1,
                                             ),
                                             dbc.Col(
                                                 dbc.Button(
@@ -181,6 +173,25 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                     n_clicks=0,
                                                 ),
                                                 align="end",
+                                                width=2,
+                                            ),
+                                            dbc.Col(
+                                                dbc.ButtonGroup(
+                                                    [
+                                                        dbc.Button(
+                                                            "Remove selected result(s)",
+                                                            id="button-clear-segments",
+                                                            n_clicks=0,
+                                                        ),
+                                                        dbc.Button(
+                                                            "Export results",
+                                                            id="button-save-segments",
+                                                            n_clicks=0,
+                                                        ),
+                                                    ],
+                                                ),
+                                                align="end",
+                                                width=5,
                                             ),
                                         ],
                                         style={"margin-top": "10px"},
@@ -192,20 +203,6 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                     ),
                     dbc.Col(
                         [
-                            dbc.ButtonGroup(
-                                [
-                                    dbc.Button(
-                                        "Remove selected result(s)",
-                                        id="button-clear-segments",
-                                        n_clicks=0,
-                                    ),
-                                    dbc.Button(
-                                        "Export results",
-                                        id="button-save-segments",
-                                        n_clicks=0,
-                                    ),
-                                ],
-                            ),
                             html.Div(
                                 dag.AgGrid(
                                     id="table-segment-results",
@@ -262,17 +259,33 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], "Current File: -"
 
     @callback(
+        Output("upload-data", "filename"),
+        Output("upload-data", "contents"),
+        Output("upload-data", "last_modified"),
+        Output("output-graph", "figure", allow_duplicate=True),
+        Output("table-segment-results", "rowData", allow_duplicate=True),
+        Input("button-clear-data", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def update_output_clear_data(n_clicks: int) -> tuple[str, str, int, go.Figure, list[dict[str, Any]]]:
+        DataSegment.clear()
+        return "", "", 0, go.Figure(), []
+
+    @callback(
         Output("output-graph", "figure", allow_duplicate=True),
         Input("button-make-plot", "n_clicks"),
         State("dropdown-plot-template", "value"),
         State("store-data-upload", "data"),
         State("dropdown-x-data", "value"),
         State("dropdown-y-data", "value"),
-        State("dropdown-secondary-y-style", "value"),
         prevent_initial_call=True,
     )
     def update_graph(
-        n_clicks: int, theme: T_PlotlyTemplate, data: UploadedData, x_col: str, y_cols: list[str], secondary_y_style: Literal["color", "scatter", "line"]
+        n_clicks: int,
+        theme: T_PlotlyTemplate,
+        data: UploadedData,
+        x_col: str,
+        y_cols: list[str],
     ) -> go.Figure:
         if not n_clicks or not data:
             return go.Figure()
@@ -282,7 +295,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
 
     @callback(
         Output("output-graph", "figure", allow_duplicate=True),
-        Output("table-segment-results", "rowData"),
+        Output("table-segment-results", "rowData", allow_duplicate=True),
         Input("button-add-fit", "n_clicks"),
         State("output-graph", "selectedData"),
         prevent_initial_call=True,

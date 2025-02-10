@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Literal, NamedTuple, TypedDict
 
 import dash_ag_grid as dag
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import polars as pl
 from dash import html
 from scipy import stats
@@ -124,6 +125,17 @@ class DataSegment:
     _source_set: ClassVar[bool] = False
 
     @classmethod
+    def clear(cls) -> None:
+        cls.all_segments = []
+        cls.source_name = ""
+        cls.source_data = pl.DataFrame()
+        cls.source_fig = go.Figure()
+        cls.x_col = ""
+        cls.y0_col = ""
+        cls.y1_col = None
+        cls._source_set = False
+
+    @classmethod
     def set_source(
         cls,
         source_name: str,
@@ -132,35 +144,43 @@ class DataSegment:
         y0_col: str,
         y1_col: str | None = None,
         theme: T_PlotlyTemplate = "simple_white",
-        y1_style: Literal["color", "scatter", "line"] | None = None,
     ) -> None:
         cls.source_name = Path(source_name).stem
         cls.source_data = source_data
         cls.x_col = x_col
         cls.y0_col = y0_col
         cls.y1_col = y1_col
-        cls.make_base_fig(theme, y1_style)
+        cls.make_base_fig(theme)
         cls._source_set = True
 
     @classmethod
-    def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white", y1_style: Literal["color", "scatter", "line"] | None = None) -> None:
+    def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white") -> None:
         cls.all_segments = []
-        # point_color = "lightgray" if cls.y1_col is None else cls.source_data.get_column(cls.y1_col)
         x = cls.source_data.get_column(cls.x_col)
         y0 = cls.source_data.get_column(cls.y0_col)
         y1 = cls.source_data.get_column(cls.y1_col) if cls.y1_col is not None else None
-        fig = go.Figure()
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_scattergl(
             x=x,
             y=y0,
             mode="markers",
-            # marker=dict(color=point_color, symbol="circle-open-dot", colorscale="Plasma", opacity=0.2, size=3),
+            marker=dict(color="royalblue", symbol="circle-open", opacity=0.2, size=3),
+            secondary_y=False,
         )
+        if y1 is not None:
+            fig.add_scattergl(
+                x=x,
+                y=y1,
+                mode="markers",
+                marker=dict(color="crimson", symbol="circle-open", size=3),
+                secondary_y=True,
+            )
         cls.source_fig = fig.update_layout(
             clickmode="event+select",
             template=theme,
             dragmode="select",
             showlegend=False,
+            height=700,
         )
 
     def __init__(self, start_index: int, end_index: int) -> None:
