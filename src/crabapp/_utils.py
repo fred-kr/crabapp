@@ -175,11 +175,11 @@ class DataSegment:
             intercept_stderr=res.intercept_stderr,
         )
         DataSegment.all_segments.append(self)
+        DataSegment.all_segments.sort(key=lambda s: s.start_index)
         self.data = self.data.with_columns(
             pl.lit(self.segment_id).alias("segment_id"),
             (self.fit_result.slope * pl.col(self.x_col) + self.fit_result.intercept).alias("fitted"),
         )
-        DataSegment.all_segments.sort(key=lambda s: s.start_index)
 
     @property
     def segment_id(self) -> int:
