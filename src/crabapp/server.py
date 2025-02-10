@@ -7,7 +7,7 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import polars as pl
 import setproctitle
-from dash import Dash, Input, Output, State, callback, dcc, html
+from dash import Dash, Input, Output, State, callback, ctx, dcc, html
 
 from crabapp._utils import (
     DataSegment,
@@ -111,7 +111,14 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                     dbc.Label("Current File: -", id="label-current-file"),
                                                 ]
                                             ),
-                                        ]
+                                            dbc.Col(
+                                                [
+                                                    dbc.Button("Clear Data", id="button-clear-data", n_clicks=0),
+                                                ],
+                                                width=2,
+                                            ),
+                                        ],
+                                        style={"margin-top": "10px"},
                                     ),
                                     dbc.Row(
                                         [
@@ -239,13 +246,16 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         Output("dropdown-y-data", "options"),
         Output("label-current-file", "children"),
         Input("upload-data", "contents"),
+        Input("button-clear-data", "n_clicks"),
         State("upload-data", "filename"),
         State("input-skip-rows", "value"),
         State("dropdown-separator", "value"),
     )
     def update_output(
-        content: str | None, name: str, skip_rows: int, separator: str
+        content: str | None, n_clicks: int, name: str, skip_rows: int, separator: str
     ) -> tuple[list[html.Div], UploadedData, list[str], list[str], str]:
+        if ctx.triggered_id == "button-clear-data":
+            return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], "Current File: -"
         if content is not None:
             div, df = parse_contents(content, name, skip_rows, separator)
             return [div], {"name": name, "data": df.write_json()}, df.columns, df.columns, f"Current File: {name}"
@@ -285,7 +295,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         ds = DataSegment(start, end)
         ds.plot()
 
-        result_df = pl.concat([pl.DataFrame(s.result_row()) for s in DataSegment.all_segments])
+        result_df = pl.concat(pl.DataFrame(s.result_row()) for s in DataSegment.all_segments)
         return DataSegment.source_fig, result_df.to_dicts()
 
     @callback(
