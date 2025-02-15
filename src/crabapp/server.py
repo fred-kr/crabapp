@@ -9,7 +9,7 @@ import polars as pl
 import setproctitle
 from dash import Dash, Input, Output, State, callback, ctx, dcc, html
 
-from crabapp._utils import (
+from crabapp.utils import (
     DataSegment,
     PlotlyTemplates,
     ResultRow,
@@ -141,8 +141,16 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                     dbc.Label("Y Axis"),
                                                     dcc.Dropdown(
                                                         id="dropdown-y-data",
-                                                        multi=True,
-                                                        placeholder="Select column(s) for y-axis",
+                                                        placeholder="Select column for y-axis",
+                                                    ),
+                                                ]
+                                            ),
+                                            dbc.Col(
+                                                [
+                                                    dbc.Label("Secondary Y Axis"),
+                                                    dcc.Dropdown(
+                                                        id="dropdown-y2-data",
+                                                        placeholder="Select column for secondary y-axis",
                                                     ),
                                                 ]
                                             ),
@@ -241,6 +249,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         Output("store-data-upload", "data"),
         Output("dropdown-x-data", "options"),
         Output("dropdown-y-data", "options"),
+        Output("dropdown-y2-data", "options"),
         Output("label-current-file", "children"),
         Input("upload-data", "contents"),
         Input("button-clear-data", "n_clicks"),
@@ -250,13 +259,14 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
     )
     def update_output(
         content: str | None, n_clicks: int, name: str, skip_rows: int, separator: str
-    ) -> tuple[list[html.Div], UploadedData, list[str], list[str], str]:
+    ) -> tuple[list[html.Div], UploadedData, list[str], list[str], list[str], str]:
         if ctx.triggered_id == "button-clear-data":
-            return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], "Current File: -"
+            return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
         if content is not None:
             div, df = parse_contents(content, name, skip_rows, separator)
-            return [div], {"name": name, "data": df.write_json()}, df.columns, df.columns, f"Current File: {name}"
-        return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], "Current File: -"
+            cols = df.columns
+            return [div], {"name": name, "data": df.write_json()}, cols, cols, cols, f"Current File: {name}"
+        return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
 
     @callback(
         Output("upload-data", "filename"),
@@ -267,7 +277,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         Input("button-clear-data", "n_clicks"),
         prevent_initial_call=True,
     )
-    def update_output_clear_data(n_clicks: int) -> tuple[str, str, int, go.Figure, list[dict[str, Any]]]:
+    def clear_current_data(n_clicks: int) -> tuple[str, str, int, go.Figure, list[dict[str, Any]]]:
         DataSegment.clear()
         return "", "", 0, go.Figure(), []
 
@@ -278,6 +288,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         State("store-data-upload", "data"),
         State("dropdown-x-data", "value"),
         State("dropdown-y-data", "value"),
+        State("dropdown-y2-data", "value"),
         prevent_initial_call=True,
     )
     def update_graph(
@@ -285,12 +296,14 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         theme: T_PlotlyTemplate,
         data: UploadedData,
         x_col: str,
-        y_cols: list[str],
+        y_col: str,
+        y2_col: str | None,
     ) -> go.Figure:
         if not n_clicks or not data:
             return go.Figure()
         df = pl.read_json(io.StringIO(data["data"]))
-        DataSegment.set_source(data["name"], df, x_col, y_cols[0], y_cols[1] if len(y_cols) > 1 else None, theme=theme)
+        y2_col = None if y2_col == "" else y2_col
+        DataSegment.set_source(data["name"], df, x_col, y_col, y2_col, theme=theme)
         return DataSegment.source_fig
 
     @callback(
@@ -303,6 +316,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
     def update_segments(n_clicks: int, selected_data: SelectedData | None) -> tuple[go.Figure, list[dict[str, Any]]]:
         if not n_clicks or not selected_data:
             return DataSegment.source_fig, []
+        
         start = selected_data["points"][0]["pointIndex"]
         end = selected_data["points"][-1]["pointIndex"]
         ds = DataSegment(start, end)

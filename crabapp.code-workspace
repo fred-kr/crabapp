@@ -5,5 +5,25 @@
 		}
 	],
 	"settings": {
+		"files.exclude": {
+			"**/dist": true,
+			"**/build": true,
+			"**/output": true,
+			"**/pickles": true,
+			"**/.idea": true,
+		},
+		"python.analysis.exclude": [
+			"**/__pycache__",
+			".git",
+			".venv",
+			"**/tests/**",
+			".mypy_cache/**",
+			".pytest_cache/**",
+			".ruff_cache/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/output/**",
+			"**/.idea/**",
+		],
 	}
 }

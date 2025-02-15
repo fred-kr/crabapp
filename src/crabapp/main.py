@@ -13,7 +13,7 @@ def start() -> None:
     import setproctitle
     import webview
 
-    from crabapp._utils import terminate_when_process_dies
+    from crabapp.utils import terminate_when_process_dies
     from crabapp.server import start_dash
 
     port = os.getenv("PORT", "8050")
