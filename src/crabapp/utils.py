@@ -6,13 +6,13 @@ import os
 import signal
 import threading
 from pathlib import Path
-from typing import Any, ClassVar, Literal, NamedTuple, TypedDict
+from typing import Any, ClassVar, Literal, NamedTuple, TypedDict, cast
 
 import dash_ag_grid as dag
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import polars as pl
 from dash import html
+from plotly.subplots import make_subplots
 from scipy import stats
 
 type T_PlotlyTemplate = Literal[
@@ -112,6 +112,16 @@ class ResultRow(TypedDict):
     end_index: int
     slope: float
     rsquared: float
+    mean_y2: float
+    name_x: str
+    start_x: float | int
+    end_x: float | int
+    name_y: str
+    start_y: float
+    end_y: float
+    name_y2: str
+    start_y2: float
+    end_y2: float
 
 
 class DataSegment:
@@ -120,8 +130,8 @@ class DataSegment:
     source_data: ClassVar[pl.DataFrame] = pl.DataFrame()
     source_fig: ClassVar[go.Figure] = go.Figure()
     x_col: ClassVar[str] = ""
-    y0_col: ClassVar[str] = ""
-    y1_col: ClassVar[str | None] = None
+    y_col: ClassVar[str] = ""
+    y2_col: ClassVar[str | None] = None
     _source_set: ClassVar[bool] = False
 
     @classmethod
@@ -131,8 +141,8 @@ class DataSegment:
         cls.source_data = pl.DataFrame()
         cls.source_fig = go.Figure()
         cls.x_col = ""
-        cls.y0_col = ""
-        cls.y1_col = None
+        cls.y_col = ""
+        cls.y2_col = None
         cls._source_set = False
 
     @classmethod
@@ -141,46 +151,62 @@ class DataSegment:
         source_name: str,
         source_data: pl.DataFrame,
         x_col: str,
-        y0_col: str,
-        y1_col: str | None = None,
+        y_col: str,
+        y2_col: str | None = None,
         theme: T_PlotlyTemplate = "simple_white",
     ) -> None:
         cls.source_name = Path(source_name).stem
         cls.source_data = source_data
         cls.x_col = x_col
-        cls.y0_col = y0_col
-        cls.y1_col = y1_col
+        cls.y_col = y_col
+        cls.y2_col = y2_col
         cls.make_base_fig(theme)
         cls._source_set = True
 
     @classmethod
     def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white") -> None:
-        cls.all_segments = []
+        # cls.all_segments = []
         x = cls.source_data.get_column(cls.x_col)
-        y0 = cls.source_data.get_column(cls.y0_col)
-        y1 = cls.source_data.get_column(cls.y1_col) if cls.y1_col is not None else None
+        y0 = cls.source_data.get_column(cls.y_col)
+        y1 = cls.source_data.get_column(cls.y2_col) if cls.y2_col is not None else None
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_scattergl(
             x=x,
             y=y0,
+            name=cls.y_col,
             mode="markers",
             marker=dict(color="royalblue", symbol="circle-open", opacity=0.2, size=3),
             secondary_y=False,
         )
+        fig.update_xaxes(title_text=cls.x_col)
+        fig.update_yaxes(rangemode="tozero")
+        fig.update_yaxes(title_text=cls.y_col, secondary_y=False)
         if y1 is not None:
             fig.add_scattergl(
                 x=x,
                 y=y1,
+                name=cls.y2_col,
                 mode="markers",
-                marker=dict(color="crimson", symbol="circle-open", size=3),
+                marker=dict(color="crimson", symbol="cross", size=3),
                 secondary_y=True,
             )
+            fig.update_yaxes(title_text=cls.y2_col, secondary_y=True)
+
         cls.source_fig = fig.update_layout(
             clickmode="event+select",
             template=theme,
             dragmode="select",
-            showlegend=False,
-            height=700,
+            # legend=dict(
+            #     orientation="h",
+            #     xanchor="center",
+            #     xref="container",
+            #     yref="container",
+            #     y=0,
+            #     x=0.5,
+            # ),
+            autosize=True,
+            # showlegend=False,
+            height=600,
         )
 
     def __init__(self, start_index: int, end_index: int) -> None:
@@ -189,7 +215,7 @@ class DataSegment:
         self.start_index = start_index
         self.end_index = end_index
         self.data = self.source_data.slice(self.start_index, self.end_index - self.start_index + 1)
-        res: Any = stats.linregress(self.data.get_column(self.x_col), self.data.get_column(self.y0_col))
+        res: Any = stats.linregress(self.data.get_column(self.x_col), self.data.get_column(self.y_col))
         self.fit_result = LinregressResult(
             slope=res.slope,
             intercept=res.intercept,
@@ -214,32 +240,40 @@ class DataSegment:
         return self.data.get_column(self.x_col)
 
     @property
-    def y0_data(self) -> pl.Series:
-        return self.data.get_column(self.y0_col)
+    def y_data(self) -> pl.Series:
+        return self.data.get_column(self.y_col)
 
     @property
-    def y1_data(self) -> pl.Series | None:
-        return None if self.y1_col is None else self.data.get_column(self.y1_col)
+    def y2_data(self) -> pl.Series | None:
+        return None if self.y2_col is None else self.data.get_column(self.y2_col)
 
     @property
-    def y0_fitted(self) -> pl.Series:
+    def y_fitted(self) -> pl.Series:
         return self.data.get_column("fitted")
+
+    @property
+    def y2_mean(self) -> float:
+        if self.y2_data is not None:
+            return cast(float, self.y2_data.mean())
+        else:
+            return float("nan")
 
     def plot(self, add: bool = True) -> go.Figure:
         if add:
             return self.source_fig.add_scattergl(
                 x=self.x_data,
-                y=self.y0_fitted,
+                y=self.y_fitted,
                 mode="lines",
-                line=dict(color="red", width=3),
-                name=f"Fit {self.segment_id}<br>slope={self.fit_result.slope:.2f}<br>r2={self.fit_result.rvalue**2:.2f}",
-                hoverinfo="name",
+                line=dict(color="darkorange", width=4),
+                name=f"Fit {self.segment_id}",
+                hoverinfo="name+text",
+                hovertext=f"slope={self.fit_result.slope:.4f}<br>r^2={self.fit_result.rvalue**2:.3f}<br>mean_y2={self.y2_mean:.1f}",
             )
         fig = go.Figure()
-        point_color = self.y1_data or "lightgray"
+        point_color = self.y2_data or "lightgray"
         fig.add_scattergl(
             x=self.x_data,
-            y=self.y0_data,
+            y=self.y_data,
             mode="markers",
             marker=dict(color=point_color),
             # name=f"Fit {self.segment_id}",
@@ -247,11 +281,12 @@ class DataSegment:
         )
         return fig.add_scattergl(
             x=self.x_data,
-            y=self.y0_fitted,
+            y=self.y_fitted,
             mode="lines",
-            line=dict(color="red", width=3),
-            name=f"Fit {self.segment_id}<br>slope={self.fit_result.slope:.2f}<br>r2={self.fit_result.rvalue**2:.2f}",
-            hoverinfo="name",
+            line=dict(color="darkorange", width=4),
+            name=f"Fit {self.segment_id}",
+            hoverinfo="name+text",
+            hovertext=f"slope={self.fit_result.slope:.4f}<br>r^2={self.fit_result.rvalue**2:.3f}<br>mean_y2={self.y2_mean:.1f}",
         )
 
     def result_row(self) -> ResultRow:
@@ -262,6 +297,16 @@ class DataSegment:
             "end_index": self.end_index,
             "slope": self.fit_result.slope,
             "rsquared": self.fit_result.rvalue**2,
+            "mean_y2": self.y2_mean,
+            "name_x": self.x_col,
+            "start_x": self.x_data.item(0),
+            "end_x": self.x_data.item(-1),
+            "name_y": self.y_col,
+            "start_y": self.y_data.item(0),
+            "end_y": self.y_data.item(-1),
+            "name_y2": self.y2_col or "-",
+            "start_y2": self.y2_data.item(0) if self.y2_data is not None else float("nan"),
+            "end_y2": self.y2_data.item(-1) if self.y2_data is not None else float("nan"),
         }
 
 

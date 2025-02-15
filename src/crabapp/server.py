@@ -48,6 +48,16 @@ segment_grid_columns: list[dict[str, Any]] = [
     {"field": "end_index", "headerName": "end_index"},
     {"field": "slope", "headerName": "slope"},
     {"field": "rsquared", "headerName": "rsquared"},
+    {"field": "mean_y2", "headerName": "mean_y2"},
+    {"field": "name_x", "headerName": "name_x"},
+    {"field": "start_x", "headerName": "start_x"},
+    {"field": "end_x", "headerName": "end_x"},
+    {"field": "name_y", "headerName": "name_y"},
+    {"field": "start_y", "headerName": "start_y"},
+    {"field": "end_y", "headerName": "end_y"},
+    {"field": "name_y2", "headerName": "name_y2"},
+    {"field": "start_y2", "headerName": "start_y2"},
+    {"field": "end_y2", "headerName": "end_y2"},
 ]
 
 
@@ -72,7 +82,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                             dbc.Col(
                                                 [
                                                     dbc.Label("Skip Rows"),
-                                                    dbc.Input(id="input-skip-rows", type="number", value=0, min=0),
+                                                    dbc.Input(id="input-skip-rows", type="number", value=57, min=0),
                                                 ]
                                             ),
                                             dbc.Col(
@@ -117,10 +127,12 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                     id="button-clear-data",
                                                     n_clicks=0,
                                                     size="lg",
-                                                    style={"margin-top": "10px"},
+                                                    style={
+                                                        "margin-top": "10px",
+                                                    },
                                                 ),
                                                 width=2,
-                                                align="stretch",
+                                                align="start",
                                             ),
                                         ],
                                         style={"margin-top": "10px"},
@@ -167,7 +179,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                         value="simple_white",
                                                     ),
                                                 ],
-                                                width=4,
+                                                width=3,
                                             ),
                                             dbc.Col(
                                                 dbc.Button("Plot", id="button-make-plot", n_clicks=0),
@@ -184,22 +196,22 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                 width=2,
                                             ),
                                             dbc.Col(
-                                                dbc.ButtonGroup(
-                                                    [
-                                                        dbc.Button(
-                                                            "Remove selected result(s)",
-                                                            id="button-clear-segments",
-                                                            n_clicks=0,
-                                                        ),
-                                                        dbc.Button(
-                                                            "Export results",
-                                                            id="button-save-segments",
-                                                            n_clicks=0,
-                                                        ),
-                                                    ],
+                                                dbc.Button(
+                                                    "Remove selected result(s)",
+                                                    id="button-clear-segments",
+                                                    n_clicks=0,
                                                 ),
                                                 align="end",
-                                                width=5,
+                                                width=4,
+                                            ),
+                                            dbc.Col(
+                                                dbc.Button(
+                                                    "Export results",
+                                                    id="button-save-segments",
+                                                    n_clicks=0,
+                                                ),
+                                                align="end",
+                                                width=2,
                                             ),
                                         ],
                                         style={"margin-top": "10px"},
@@ -214,7 +226,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                             html.Div(
                                 dag.AgGrid(
                                     id="table-segment-results",
-                                    columnSize="responsiveSizeToFit",
+                                    columnSize="autoSize",
                                     columnDefs=segment_grid_columns,
                                     rowData=[],
                                     csvExportParams={"fileName": "results.csv"},
@@ -223,6 +235,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                         "suppressRowClickSelection": True,
                                         "animateRows": False,
                                         "suppressFieldDotNotation": True,
+                                        "suppressHorizontalScroll": False,
                                     },
                                 ),
                             ),
@@ -231,11 +244,11 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                 ]
             ),
             dbc.Row(
-                dbc.Col(dcc.Graph(id="output-graph"), width=12),
+                dbc.Col(dcc.Graph(id="output-graph", style={"width": "100%"})),
                 style={"margin-top": "10px"},
             ),
             dbc.Row(
-                dbc.Col(id="output-data-upload", width=12),
+                dbc.Col(id="output-data-upload"),
                 style={"margin-top": "10px"},
             ),
             dcc.Store(id="store-data-upload"),
@@ -304,6 +317,9 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         df = pl.read_json(io.StringIO(data["data"]))
         y2_col = None if y2_col == "" else y2_col
         DataSegment.set_source(data["name"], df, x_col, y_col, y2_col, theme=theme)
+        if len(DataSegment.all_segments) > 0:
+            for ds in DataSegment.all_segments:
+                ds.plot()
         return DataSegment.source_fig
 
     @callback(
@@ -316,18 +332,17 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
     def update_segments(n_clicks: int, selected_data: SelectedData | None) -> tuple[go.Figure, list[dict[str, Any]]]:
         if not n_clicks or not selected_data:
             return DataSegment.source_fig, []
-        
+
         start = selected_data["points"][0]["pointIndex"]
         end = selected_data["points"][-1]["pointIndex"]
         ds = DataSegment(start, end)
-        ds.plot()
-
+        new_fig = ds.plot()
         result_df = pl.concat(pl.DataFrame(s.result_row()) for s in DataSegment.all_segments)
-        return DataSegment.source_fig, result_df.to_dicts()
+        return new_fig, result_df.to_dicts()
 
     @callback(
         Output("output-graph", "figure", allow_duplicate=True),
-        Output("table-segment-results", "deleteSelectedRows"),
+        Output("table-segment-results", "rowData", allow_duplicate=True),
         Input("button-clear-segments", "n_clicks"),
         State("table-segment-results", "selectedRows"),
         State("dropdown-plot-template", "value"),
@@ -335,22 +350,25 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
     )
     def clear_segments(
         n_clicks: int, selected_rows: list[ResultRow], theme: T_PlotlyTemplate
-    ) -> tuple[go.Figure, bool]:
-        current_fits = DataSegment.all_segments.copy()
+    ) -> tuple[go.Figure, list[dict[str, Any]]]:
         # get the start indices from the selected rows and use them to remove the corresponding segments
         for row in selected_rows:
             start = row["start_index"]
-            for i, fit in enumerate(current_fits):
+            for i, fit in enumerate(DataSegment.all_segments):
                 if fit.start_index == start:
-                    current_fits.pop(i)
+                    DataSegment.all_segments.pop(i)
                     break
 
         DataSegment.make_base_fig(theme=theme)
-        for cfit in current_fits:
-            ds = DataSegment(cfit.start_index, cfit.end_index)
+
+        if not DataSegment.all_segments:
+            return DataSegment.source_fig, []
+        DataSegment.all_segments.sort(key=lambda s: s.start_index)
+        for ds in DataSegment.all_segments:
             ds.plot()
 
-        return DataSegment.source_fig, True
+        result_df = pl.concat(pl.DataFrame(s.result_row()) for s in DataSegment.all_segments)
+        return DataSegment.source_fig, result_df.to_dicts()
 
     @callback(
         Output("table-segment-results", "exportDataAsCsv"),
