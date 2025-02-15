@@ -196,16 +196,7 @@ class DataSegment:
             clickmode="event+select",
             template=theme,
             dragmode="select",
-            # legend=dict(
-            #     orientation="h",
-            #     xanchor="center",
-            #     xref="container",
-            #     yref="container",
-            #     y=0,
-            #     x=0.5,
-            # ),
             autosize=True,
-            # showlegend=False,
             height=600,
         )
 
