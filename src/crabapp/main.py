@@ -13,8 +13,8 @@ def start() -> None:
     import setproctitle
     import webview
 
-    from crabapp.utils import terminate_when_process_dies
     from crabapp.server import start_dash
+    from crabapp.utils import terminate_when_process_dies
 
     port = os.getenv("PORT", "8050")
     host = os.getenv("HOST", "127.0.0.1")
@@ -40,7 +40,7 @@ def start() -> None:
     # Allow downloading results as csv file
     webview.settings["ALLOW_DOWNLOADS"] = True
     # Create the webview.
-    webview.create_window("CrabApp", f"http://{host}:{port}", width=1920, height=1080)
+    webview.create_window("CrabApp", f"http://{host}:{port}", width=1600, height=900)
     webview.start()
 
     # Reached when window is closed.
