@@ -1,11 +1,12 @@
 import io
-from multiprocessing.synchronize import Condition
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import polars as pl
+import polars.selectors as cs
 import setproctitle
 from dash import Dash, Input, Output, State, callback, ctx, dcc, html
 
@@ -19,6 +20,9 @@ from crabapp.utils import (
     parse_contents,
     terminate_when_parent_process_dies,
 )
+
+if TYPE_CHECKING:
+    from multiprocessing.synchronize import Condition
 
 upload_style = {
     "height": "60px",
@@ -41,33 +45,33 @@ container_style = {"padding": "10px"}
 # -----------------------------------------------------------------------------
 # Column definitions for the segment results grid
 # -----------------------------------------------------------------------------
-segment_grid_columns: list[dict[str, Any]] = [
-    {"field": "source_file", "headerName": "source_file", "checkboxSelection": True},
-    {"field": "fit_id", "headerName": "fit_id"},
-    {"field": "start_index", "headerName": "start_index"},
-    {"field": "end_index", "headerName": "end_index"},
-    {"field": "slope", "headerName": "slope"},
-    {"field": "rsquared", "headerName": "rsquared"},
-    {"field": "mean_y2", "headerName": "mean_y2"},
-    {"field": "name_x", "headerName": "name_x"},
-    {"field": "start_x", "headerName": "start_x"},
-    {"field": "end_x", "headerName": "end_x"},
-    {"field": "name_y", "headerName": "name_y"},
-    {"field": "start_y", "headerName": "start_y"},
-    {"field": "end_y", "headerName": "end_y"},
-    {"field": "name_y2", "headerName": "name_y2"},
-    {"field": "start_y2", "headerName": "start_y2"},
-    {"field": "end_y2", "headerName": "end_y2"},
+segment_grid_columns = [
+    {"field": "source_file", "headerName": "source_file", "checkboxSelection": True, "cellDataType": "text"},
+    {"field": "fit_id", "headerName": "fit_id", "cellDataType": "number"},
+    {"field": "start_index", "headerName": "start_index", "cellDataType": "number"},
+    {"field": "end_index", "headerName": "end_index", "cellDataType": "number"},
+    {"field": "slope", "headerName": "slope", "cellDataType": "number"},
+    {"field": "rsquared", "headerName": "rsquared", "cellDataType": "number"},
+    {"field": "mean_y2", "headerName": "mean_y2", "cellDataType": "number"},
+    {"field": "name_x", "headerName": "name_x", "cellDataType": "text"},
+    {"field": "start_x", "headerName": "start_x", "cellDataType": "number"},
+    {"field": "end_x", "headerName": "end_x", "cellDataType": "number"},
+    {"field": "name_y", "headerName": "name_y", "cellDataType": "text"},
+    {"field": "start_y", "headerName": "start_y", "cellDataType": "number"},
+    {"field": "end_y", "headerName": "end_y", "cellDataType": "number"},
+    {"field": "name_y2", "headerName": "name_y2", "cellDataType": "text"},
+    {"field": "start_y2", "headerName": "start_y2", "cellDataType": "number"},
+    {"field": "end_y2", "headerName": "end_y2", "cellDataType": "number"},
 ]
 
 
-def start_dash(host: str, port: str, server_is_started: Condition) -> None:
+def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
     # Set the process title.
     setproctitle.setproctitle("crabapp-dash")
     # When the parent dies, follow along.
     terminate_when_parent_process_dies()
 
-    app = Dash("crabapp", external_stylesheets=[dbc.themes.BOOTSTRAP])
+    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     app.layout = dbc.Container(
         [
@@ -119,19 +123,19 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                                         style=upload_style,
                                                     ),
                                                     dbc.Label("Current File: -", id="label-current-file"),
-                                                ]
+                                                ],
                                             ),
                                             dbc.Col(
                                                 dbc.Button(
                                                     "Clear Data",
                                                     id="button-clear-data",
                                                     n_clicks=0,
-                                                    size="lg",
+                                                    # size="lg",
                                                     style={
                                                         "margin-top": "10px",
                                                     },
                                                 ),
-                                                width=2,
+                                                width=3,
                                                 align="start",
                                             ),
                                         ],
@@ -188,7 +192,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                             ),
                                             dbc.Col(
                                                 dbc.Button(
-                                                    "Add linear fit",
+                                                    "Add fit",
                                                     id="button-add-fit",
                                                     n_clicks=0,
                                                 ),
@@ -232,7 +236,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
                                     csvExportParams={"fileName": "results.csv"},
                                     dashGridOptions={
                                         "rowSelection": "multiple",
-                                        "suppressRowClickSelection": True,
+                                        # "suppressRowClickSelection": True,
                                         "animateRows": False,
                                         "suppressFieldDotNotation": True,
                                         "suppressHorizontalScroll": False,
@@ -277,10 +281,19 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
             return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
         if content is not None:
             div, df = parse_contents(content, name, skip_rows, separator)
-            cols = df.columns
+            cols = df.select(cs.numeric()).columns
             return [div], {"name": name, "data": df.write_json()}, cols, cols, cols, f"Current File: {name}"
         return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
 
+    @callback(
+        Output("table-segment-results", "csvExportParams"),
+        Input("store-data-upload", "data"),
+    )
+    def set_export_name(data: UploadedData) -> dict[str, str]:
+        if not data or data["name"] == "":
+            return {"fileName": "results.csv"}
+        return {"fileName": f"results_{Path(data['name']).stem}.csv"}
+    
     @callback(
         Output("upload-data", "filename"),
         Output("upload-data", "contents"),
@@ -312,7 +325,7 @@ def start_dash(host: str, port: str, server_is_started: Condition) -> None:
         y_col: str,
         y2_col: str | None,
     ) -> go.Figure:
-        if not n_clicks or not data:
+        if not n_clicks or data["data"] == "":
             return go.Figure()
         df = pl.read_json(io.StringIO(data["data"]))
         y2_col = None if y2_col == "" else y2_col

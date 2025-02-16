@@ -165,7 +165,6 @@ class DataSegment:
 
     @classmethod
     def make_base_fig(cls, theme: T_PlotlyTemplate = "simple_white") -> None:
-        # cls.all_segments = []
         x = cls.source_data.get_column(cls.x_col)
         y0 = cls.source_data.get_column(cls.y_col)
         y1 = cls.source_data.get_column(cls.y2_col) if cls.y2_col is not None else None
