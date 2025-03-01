@@ -11,6 +11,7 @@ from typing import Any, ClassVar, Literal, NamedTuple, TypedDict, cast
 import dash_ag_grid as dag
 import plotly.graph_objects as go
 import polars as pl
+import polars.selectors as cs
 from dash import html
 from plotly.subplots import make_subplots
 from scipy import stats
@@ -379,7 +380,7 @@ def parse_contents(
         print(e)
         return html.Div(["There was an error processing this file."]), pl.DataFrame()
 
-    df = df.with_row_index()
+    df = df.select(cs.numeric()).with_row_index()
     return html.Div(
         [
             html.H5(filename),

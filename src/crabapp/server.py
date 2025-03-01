@@ -279,6 +279,9 @@ def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
         Output("dropdown-y-data", "options"),
         Output("dropdown-y2-data", "options"),
         Output("label-current-file", "children"),
+        Output("dropdown-x-data", "value"),
+        Output("dropdown-y-data", "value"),
+        Output("dropdown-y2-data", "value"),
         Input("upload-data", "contents"),
         Input("button-clear-data", "n_clicks"),
         State("upload-data", "filename"),
@@ -287,14 +290,14 @@ def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
     )
     def update_output(
         content: str | None, n_clicks: int, name: str, skip_rows: int, separator: str
-    ) -> tuple[list[html.Div], UploadedData, list[str], list[str], list[str], str]:
+    ) -> tuple[list[html.Div], UploadedData, list[str], list[str], list[str], str, str, str, str]:
         if ctx.triggered_id == "button-clear-data":
-            return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
+            return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -", "", "", ""
         if content is not None:
             div, df = parse_contents(content, name, skip_rows, separator)
-            cols = df.select(cs.numeric()).columns
-            return [div], {"name": name, "data": df.write_json()}, cols, cols, cols, f"Current File: {name}"
-        return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -"
+            cols = df.columns
+            return [div], {"name": name, "data": df.write_json()}, cols, cols, cols, f"Current File: {name}", cols[1], cols[2], cols[-1]
+        return [html.Div(["No file uploaded."])], {"name": "", "data": ""}, [], [], [], "Current File: -", "", "", ""
 
     @callback(
         Output("table-segment-results", "csvExportParams"),
