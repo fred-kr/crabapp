@@ -3,10 +3,9 @@ import sys
 
 def start() -> None:
     import multiprocessing
+    multiprocessing.freeze_support()
     import os
     import time
-
-    multiprocessing.freeze_support()
 
     from multiprocessing import Condition, Process
 
@@ -41,7 +40,7 @@ def start() -> None:
     webview.settings["ALLOW_DOWNLOADS"] = True
     # Create the webview.
     webview.create_window("CrabApp", f"http://{host}:{port}", width=1600, height=900)
-    webview.start()
+    webview.start(debug=True)
 
     # Reached when window is closed.
     p.terminate()

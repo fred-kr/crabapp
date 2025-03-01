@@ -64,16 +64,172 @@ segment_grid_columns = [
     {"field": "end_y2", "headerName": "end_y2", "cellDataType": "number"},
 ]
 
+def create_data_input_controls():
+    return dbc.Card(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            dbc.Label("Skip Rows"),
+                            dbc.Input(id="input-skip-rows", type="number", value=57, min=0),
+                        ]
+                    ),
+                    dbc.Col(
+                        [
+                            dbc.Label("Column Separator"),
+                            dcc.Dropdown(
+                                id="dropdown-separator",
+                                options=[
+                                    {"label": "Detect Automatically", "value": "auto"},
+                                    {"label": "Comma (',')", "value": ","},
+                                    {"label": "Semicolon (';')", "value": ";"},
+                                    {"label": "Tab ('\\t')", "value": "\t"},
+                                    {"label": "Pipe ('|')", "value": "|"},
+                                ],
+                                value="auto",
+                            ),
+                        ]
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            dcc.Upload(
+                                id="upload-data",
+                                children=html.Div(
+                                    [
+                                        "Drag and Drop or ",
+                                        html.A("Select File", style=upload_link_style),
+                                    ]
+                                ),
+                                multiple=False,
+                                style=upload_style,
+                            ),
+                            dbc.Label("Current File: -", id="label-current-file"),
+                        ]
+                    ),
+                    dbc.Col(
+                        dbc.Button(
+                            "Clear Data",
+                            id="button-clear-data",
+                            n_clicks=0,
+                            style={"margin-top": "10px"},
+                        ),
+                        width=3,
+                        align="start",
+                    ),
+                ],
+                style={"margin-top": "10px"},
+            ),
+        ],
+        body=True,
+    )
 
-def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
-    # Set the process title.
-    setproctitle.setproctitle("crabapp-dash")
-    # When the parent dies, follow along.
-    terminate_when_parent_process_dies()
 
-    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+def create_axis_controls():
+    return dbc.Row(
+        [
+            dbc.Col(
+                [
+                    dbc.Label("X Axis"),
+                    dcc.Dropdown(
+                        id="dropdown-x-data",
+                        placeholder="Select column for x-axis",
+                    ),
+                ]
+            ),
+            dbc.Col(
+                [
+                    dbc.Label("Y Axis"),
+                    dcc.Dropdown(
+                        id="dropdown-y-data",
+                        placeholder="Select column for y-axis",
+                    ),
+                ]
+            ),
+            dbc.Col(
+                [
+                    dbc.Label("Secondary Y Axis"),
+                    dcc.Dropdown(
+                        id="dropdown-y2-data",
+                        placeholder="Select column for secondary y-axis",
+                    ),
+                ]
+            ),
+        ]
+    )
 
-    app.layout = dbc.Container(
+
+def create_plot_controls():
+    return dbc.Row(
+        [
+            dbc.Col(
+                [
+                    dbc.Label("Plot Style"),
+                    dcc.Dropdown(
+                        id="dropdown-plot-template",
+                        options=list(PlotlyTemplates),
+                        value="simple_white",
+                    ),
+                ],
+                width=3,
+            ),
+            dbc.Col(
+                dbc.Button("Plot", id="button-make-plot", n_clicks=0),
+                align="end",
+                width=1,
+            ),
+            dbc.Col(
+                dbc.Button("Add fit", id="button-add-fit", n_clicks=0),
+                align="end",
+                width=2,
+            ),
+            dbc.Col(
+                dbc.Button(
+                    "Remove selected result(s)",
+                    id="button-clear-segments",
+                    n_clicks=0,
+                ),
+                align="end",
+                width=4,
+            ),
+            dbc.Col(
+                dbc.Button(
+                    "Export results",
+                    id="button-save-segments",
+                    n_clicks=0,
+                ),
+                align="end",
+                width=2,
+            ),
+        ],
+        style={"margin-top": "10px"},
+    )
+
+
+def create_results_table():
+    return html.Div(
+        dag.AgGrid(
+            id="table-segment-results",
+            columnSize="autoSize",
+            columnDefs=segment_grid_columns,
+            rowData=[],
+            csvExportParams={"fileName": "results.csv"},
+            dashGridOptions={
+                "rowSelection": "multiple",
+                "animateRows": False,
+                "suppressFieldDotNotation": True,
+                "suppressHorizontalScroll": False,
+            },
+        ),
+    )
+
+
+def create_layout():
+    return dbc.Container(
         [
             dbc.Row(
                 [
@@ -81,170 +237,15 @@ def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
                         [
                             dbc.Card(
                                 [
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Skip Rows"),
-                                                    dbc.Input(id="input-skip-rows", type="number", value=57, min=0),
-                                                ]
-                                            ),
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Column Separator"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-separator",
-                                                        options=[
-                                                            {"label": "Detect Automatically", "value": "auto"},
-                                                            {"label": "Comma (',')", "value": ","},
-                                                            {"label": "Semicolon (';')", "value": ";"},
-                                                            {"label": "Tab ('\\t')", "value": "\t"},
-                                                            {"label": "Pipe ('|')", "value": "|"},
-                                                        ],
-                                                        value="auto",
-                                                    ),
-                                                ]
-                                            ),
-                                        ],
-                                    ),
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                [
-                                                    dcc.Upload(
-                                                        id="upload-data",
-                                                        children=html.Div(
-                                                            [
-                                                                "Drag and Drop or ",
-                                                                html.A("Select File", style=upload_link_style),
-                                                            ]
-                                                        ),
-                                                        multiple=False,
-                                                        style=upload_style,
-                                                    ),
-                                                    dbc.Label("Current File: -", id="label-current-file"),
-                                                ],
-                                            ),
-                                            dbc.Col(
-                                                dbc.Button(
-                                                    "Clear Data",
-                                                    id="button-clear-data",
-                                                    n_clicks=0,
-                                                    # size="lg",
-                                                    style={
-                                                        "margin-top": "10px",
-                                                    },
-                                                ),
-                                                width=3,
-                                                align="start",
-                                            ),
-                                        ],
-                                        style={"margin-top": "10px"},
-                                    ),
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("X Axis"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-x-data",
-                                                        placeholder="Select column for x-axis",
-                                                    ),
-                                                ]
-                                            ),
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Y Axis"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-y-data",
-                                                        placeholder="Select column for y-axis",
-                                                    ),
-                                                ]
-                                            ),
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Secondary Y Axis"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-y2-data",
-                                                        placeholder="Select column for secondary y-axis",
-                                                    ),
-                                                ]
-                                            ),
-                                        ]
-                                    ),
-                                    dbc.Row(
-                                        [
-                                            dbc.Col(
-                                                [
-                                                    dbc.Label("Plot Style"),
-                                                    dcc.Dropdown(
-                                                        id="dropdown-plot-template",
-                                                        options=list(PlotlyTemplates),
-                                                        value="simple_white",
-                                                    ),
-                                                ],
-                                                width=3,
-                                            ),
-                                            dbc.Col(
-                                                dbc.Button("Plot", id="button-make-plot", n_clicks=0),
-                                                align="end",
-                                                width=1,
-                                            ),
-                                            dbc.Col(
-                                                dbc.Button(
-                                                    "Add fit",
-                                                    id="button-add-fit",
-                                                    n_clicks=0,
-                                                ),
-                                                align="end",
-                                                width=2,
-                                            ),
-                                            dbc.Col(
-                                                dbc.Button(
-                                                    "Remove selected result(s)",
-                                                    id="button-clear-segments",
-                                                    n_clicks=0,
-                                                ),
-                                                align="end",
-                                                width=4,
-                                            ),
-                                            dbc.Col(
-                                                dbc.Button(
-                                                    "Export results",
-                                                    id="button-save-segments",
-                                                    n_clicks=0,
-                                                ),
-                                                align="end",
-                                                width=2,
-                                            ),
-                                        ],
-                                        style={"margin-top": "10px"},
-                                    ),
+                                    create_data_input_controls(),
+                                    create_axis_controls(),
+                                    create_plot_controls(),
                                 ],
                                 body=True,
                             ),
                         ]
                     ),
-                    dbc.Col(
-                        [
-                            html.Div(
-                                dag.AgGrid(
-                                    id="table-segment-results",
-                                    columnSize="autoSize",
-                                    columnDefs=segment_grid_columns,
-                                    rowData=[],
-                                    csvExportParams={"fileName": "results.csv"},
-                                    dashGridOptions={
-                                        "rowSelection": "multiple",
-                                        # "suppressRowClickSelection": True,
-                                        "animateRows": False,
-                                        "suppressFieldDotNotation": True,
-                                        "suppressHorizontalScroll": False,
-                                    },
-                                ),
-                            ),
-                        ],
-                    ),
+                    dbc.Col([create_results_table()]),
                 ]
             ),
             dbc.Row(
@@ -260,6 +261,16 @@ def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
         fluid=True,
         style=container_style,
     )
+
+def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
+    # Set the process title.
+    setproctitle.setproctitle("crabapp-dash")
+    # When the parent dies, follow along.
+    terminate_when_parent_process_dies()
+
+    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    app.layout = create_layout()
 
     @callback(
         Output("output-data-upload", "children"),
@@ -292,7 +303,7 @@ def start_dash(host: str, port: str, server_is_started: "Condition") -> None:
     def set_export_name(data: UploadedData) -> dict[str, str]:
         if not data or data["name"] == "":
             return {"fileName": "results.csv"}
-        return {"fileName": f"results_{Path(data['name']).stem}.csv"}
+        return {"fileName": f"{Path(data['name']).stem}_results.csv"}
     
     @callback(
         Output("upload-data", "filename"),
