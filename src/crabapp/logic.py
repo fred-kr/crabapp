@@ -76,6 +76,10 @@ class LinearFit:
         else:
             return float("nan")
 
+    @property
+    def rsquared(self) -> float:
+        return self.result.rvalue**2
+
     def make_result(self, source_file: str, fit_id: int) -> pl.DataFrame:
         return pl.DataFrame(
             {
@@ -84,7 +88,7 @@ class LinearFit:
                 "start_index": self.start_index,
                 "end_index": self.end_index,
                 "slope": self.result.slope,
-                "rsquared": self.result.rvalue**2,
+                "rsquared": self.rsquared,
                 "y2_mean": self.y2_mean,
                 "x_name": self.x_name,
                 "x_first": self.x_first,
