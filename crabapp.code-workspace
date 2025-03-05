@@ -25,5 +25,22 @@
 			"**/output/**",
 			"**/.idea/**",
 		],
+		"workbench.colorCustomizations": {
+			"activityBar.activeBackground": "#8ba5f8",
+			"activityBar.background": "#8ba5f8",
+			"activityBar.foreground": "#15202b",
+			"activityBar.inactiveForeground": "#15202b99",
+			"activityBarBadge.background": "#d20d3c",
+			"activityBarBadge.foreground": "#e7e7e7",
+			"commandCenter.border": "#15202b99",
+			"editorGroup.border": "#8ba5f8",
+			"sash.hoverBorder": "#8ba5f8",
+			"tab.activeBorder": "#8ba5f8",
+			"titleBar.activeBackground": "#5b80f5",
+			"titleBar.activeForeground": "#15202b",
+			"titleBar.inactiveBackground": "#5b80f599",
+			"titleBar.inactiveForeground": "#15202b99"
+		},
+		"peacock.color": "#5b80f5",
 	}
 }
